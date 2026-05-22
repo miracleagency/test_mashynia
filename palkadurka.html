@@ -118,6 +118,15 @@
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
     }
 
+    .cell img {
+      width: 72%;
+      height: 72%;
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.28));
+    }
+
     .cell:hover:not(:disabled) {
       transform: translateY(-2px);
       border-color: var(--muted);
@@ -154,6 +163,10 @@
       background: rgba(116, 229, 155, 0.12);
     }
 
+    .cell.win img {
+      animation: winnerSpinBounce 760ms cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+    }
+
     @keyframes wiggle {
       from {
         transform: rotate(-1deg);
@@ -161,6 +174,24 @@
 
       to {
         transform: rotate(1deg);
+      }
+    }
+
+    @keyframes winnerSpinBounce {
+      0% {
+        transform: rotate(0deg) scale(0.92);
+      }
+
+      45% {
+        transform: rotate(180deg) scale(1.22);
+      }
+
+      70% {
+        transform: rotate(290deg) scale(0.96);
+      }
+
+      100% {
+        transform: rotate(360deg) scale(1.08);
       }
     }
 
@@ -300,7 +331,7 @@
 
       <div class="actions">
         <button class="reset" id="resetButton" type="button">Новая партия</button>
-        <p class="hint">Версия игры: <strong>0.2.0</strong></p>
+        <p class="hint">Версия игры: <strong>0.3.0</strong></p>
       </div>
 
       <a class="version-link" href="version.html">Проверить версию сайта</a>
@@ -347,7 +378,13 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = `cell ${value.toLowerCase()}${index === chaosIndex ? " chaos" : ""}${index === bonusIndex ? " bonus" : ""}${winLine.includes(index) ? " win" : ""}`;
-        button.textContent = value;
+        button.textContent = "";
+        if (value) {
+          const image = document.createElement("img");
+          image.src = value === "X" ? "asets/X.png" : "asets/O.png";
+          image.alt = value;
+          button.appendChild(image);
+        }
         button.disabled = finished || Boolean(value) || (locked && index !== bonusIndex);
         button.setAttribute("aria-label", value ? `Клетка ${index + 1}: ${value}` : `Клетка ${index + 1}: пусто`);
         button.addEventListener("click", () => bonusIndex === index ? useBonusMove(index) : playerMove(index));
