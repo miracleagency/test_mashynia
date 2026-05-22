@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Крестики-нолики: хаос-клетка</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101215;
+      --panel: #191d22;
+      --panel-2: #222832;
+      --line: #343c49;
+      --text: #f5f7fb;
+      --muted: #a9b2c3;
+      --x: #ffcf56;
+      --o: #65d6ff;
+      --ok: #74e59b;
+      --chaos: #c493ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255, 207, 86, 0.15), transparent 28rem),
+        radial-gradient(circle at 85% 82%, rgba(101, 214, 255, 0.13), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      width: min(94vw, 520px);
+      padding: 22px;
+    }
+
+    .game {
+      padding: 20px;
+      background: rgba(25, 29, 34, 0.93);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+    }
+
+    header {
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(28px, 8vw, 42px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .subtitle,
+    .hint,
+    .version-link {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .subtitle {
+      margin: 0;
+    }
+
+    .score {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .score div {
+      min-width: 0;
+      padding: 10px 8px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .score strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 22px;
+      color: var(--text);
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      aspect-ratio: 1;
+    }
+
+    .cell {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #15191f;
+      color: var(--text);
+      font-size: clamp(42px, 17vw, 78px);
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .cell:hover:not(:disabled) {
+      transform: translateY(-2px);
+      border-color: var(--muted);
+      background: #1e242c;
+    }
+
+    .cell:disabled {
+      cursor: default;
+    }
+
+    .cell.x {
+      color: var(--x);
+      text-shadow: 0 0 18px rgba(255, 207, 86, 0.25);
+    }
+
+    .cell.o {
+      color: var(--o);
+      text-shadow: 0 0 18px rgba(101, 214, 255, 0.25);
+    }
+
+    .cell.chaos {
+      border-color: var(--chaos);
+      box-shadow: inset 0 0 0 2px rgba(196, 147, 255, 0.25), 0 0 20px rgba(196, 147, 255, 0.18);
+    }
+
+    .cell.win {
+      border-color: var(--ok);
+      background: rgba(116, 229, 155, 0.12);
+    }
+
+    .status {
+      min-height: 48px;
+      margin: 16px 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #14181e;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .status strong {
+      color: var(--text);
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .reset {
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      background: var(--text);
+      color: #101215;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .reset:hover {
+      filter: brightness(0.92);
+    }
+
+    .hint {
+      margin: 0;
+      text-align: right;
+    }
+
+    .version-link {
+      display: inline-block;
+      margin-top: 14px;
+      color: var(--o);
+      text-decoration: none;
+    }
+
+    .version-link:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 440px) {
+      main {
+        padding: 12px;
+      }
+
+      .game {
+        padding: 14px;
+      }
+
+      .actions {
+        display: grid;
+      }
+
+      .hint {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="game" aria-label="Крестики-нолики">
+      <header>
+        <h1>Крестики-нолики</h1>
+        <p class="subtitle">Ты играешь X. Бот играет O. Фиолетовая хаос-клетка иногда меняет планы прямо на поле.</p>
+      </header>
+
+      <div class="score" aria-label="Счет">
+        <div>Ты<strong id="playerScore">0</strong></div>
+        <div>Бот<strong id="botScore">0</strong></div>
+        <div>Ничьи<strong id="drawScore">0</strong></div>
+      </div>
+
+      <div class="board" id="board" aria-label="Игровое поле"></div>
+
+      <p class="status" id="status"><strong>Твой ход.</strong> Ставь крестик и держи ухо востро: хаос-клетка любит менять планы.</p>
+
+      <div class="actions">
+        <button class="reset" id="resetButton" type="button">Новая партия</button>
+        <p class="hint">Версия игры: <strong>0.1.0</strong></p>
+      </div>
+
+      <a class="version-link" href="version.html">Проверить версию сайта</a>
+    </section>
+  </main>
+
+  <script>
+    const boardElement = document.querySelector("#board");
+    const statusElement = document.querySelector("#status");
+    const resetButton = document.querySelector("#resetButton");
+    const playerScoreElement = document.querySelector("#playerScore");
+    const botScoreElement = document.querySelector("#botScore");
+    const drawScoreElement = document.querySelector("#drawScore");
+
+    const wins = [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6]
+    ];
+
+    let board = Array(9).fill("");
+    let chaosIndex = 4;
+    let locked = false;
+    let finished = false;
+    let winLine = [];
+    let score = {
+      player: 0,
+      bot: 0,
+      draw: 0
+    };
+
+    function drawBoard() {
+      boardElement.innerHTML = "";
+
+      board.forEach((value, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `cell ${value.toLowerCase()}${index === chaosIndex ? " chaos" : ""}${winLine.includes(index) ? " win" : ""}`;
+        button.textContent = value;
+        button.disabled = locked || finished || Boolean(value);
+        button.setAttribute("aria-label", value ? `Клетка ${index + 1}: ${value}` : `Клетка ${index + 1}: пусто`);
+        button.addEventListener("click", () => playerMove(index));
+        boardElement.appendChild(button);
+      });
+    }
+
+    function setStatus(message) {
+      statusElement.innerHTML = message;
+    }
+
+    function playerMove(index) {
+      if (locked || finished || board[index]) {
+        return;
+      }
+
+      board[index] = "X";
+      drawBoard();
+      if (finishIfNeeded()) {
+        return;
+      }
+
+      locked = true;
+      setStatus("<strong>Бот думает.</strong> Он не гений, но иногда делает вид.");
+      drawBoard();
+
+      window.setTimeout(() => {
+        maybeTriggerChaos();
+        if (!finishIfNeeded()) {
+          botMove();
+          finishIfNeeded();
+        }
+        locked = false;
+        if (!finished) {
+          setStatus("<strong>Твой ход.</strong> Можно строить план. Можно просто тыкать уверенно.");
+        }
+        drawBoard();
+      }, 520);
+    }
+
+    function botMove() {
+      const move = findBotMove();
+      if (move !== null) {
+        board[move] = "O";
+      }
+    }
+
+    function findBotMove() {
+      const empty = getEmptyCells();
+      if (!empty.length) {
+        return null;
+      }
+
+      const winNow = findWinningMove("O");
+      if (winNow !== null) {
+        return winNow;
+      }
+
+      const blockPlayer = findWinningMove("X");
+      if (blockPlayer !== null && Math.random() < 0.78) {
+        return blockPlayer;
+      }
+
+      if (!board[4] && Math.random() < 0.55) {
+        return 4;
+      }
+
+      const corners = [0, 2, 6, 8].filter((index) => !board[index]);
+      if (corners.length && Math.random() < 0.55) {
+        return randomFrom(corners);
+      }
+
+      return randomFrom(empty);
+    }
+
+    function findWinningMove(mark) {
+      for (const line of wins) {
+        const values = line.map((index) => board[index]);
+        const marks = values.filter((value) => value === mark).length;
+        const blanks = values.filter((value) => value === "").length;
+
+        if (marks === 2 && blanks === 1) {
+          return line[values.indexOf("")];
+        }
+      }
+
+      return null;
+    }
+
+    function maybeTriggerChaos() {
+      const empty = getEmptyCells();
+      chaosIndex = randomFrom(empty.length ? empty : [chaosIndex]);
+
+      const occupied = board
+        .map((value, index) => value ? index : null)
+        .filter((index) => index !== null);
+
+      if (occupied.length < 2 || Math.random() > 0.38) {
+        return;
+      }
+
+      const first = randomFrom(occupied);
+      let second = randomFrom(occupied);
+      while (second === first) {
+        second = randomFrom(occupied);
+      }
+
+      const temp = board[first];
+      board[first] = board[second];
+      board[second] = temp;
+      setStatus("<strong>Хаос-клетка сработала.</strong> Две занятые клетки поменялись местами. Честно? Почти.");
+    }
+
+    function finishIfNeeded() {
+      const result = getWinner();
+      if (!result && getEmptyCells().length) {
+        return false;
+      }
+
+      finished = true;
+
+      if (result) {
+        winLine = result.line;
+        if (result.mark === "X") {
+          score.player += 1;
+          setStatus("<strong>Победа!</strong> Бот сделал вид, что это был обучающий раунд.");
+        } else {
+          score.bot += 1;
+          setStatus("<strong>Бот победил.</strong> Неприятно, но он уже слишком доволен собой.");
+        }
+      } else {
+        score.draw += 1;
+        setStatus("<strong>Ничья.</strong> Поле заполнено, самооценка у всех на месте.");
+      }
+
+      updateScore();
+      drawBoard();
+      return true;
+    }
+
+    function getWinner() {
+      for (const line of wins) {
+        const [a, b, c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return {
+            mark: board[a],
+            line
+          };
+        }
+      }
+
+      return null;
+    }
+
+    function getEmptyCells() {
+      return board
+        .map((value, index) => value ? null : index)
+        .filter((index) => index !== null);
+    }
+
+    function randomFrom(items) {
+      return items[Math.floor(Math.random() * items.length)];
+    }
+
+    function updateScore() {
+      playerScoreElement.textContent = score.player;
+      botScoreElement.textContent = score.bot;
+      drawScoreElement.textContent = score.draw;
+    }
+
+    function resetGame() {
+      board = Array(9).fill("");
+      chaosIndex = randomFrom([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+      locked = false;
+      finished = false;
+      winLine = [];
+      setStatus("<strong>Твой ход.</strong> Ставь крестик и держи ухо востро: хаос-клетка любит менять планы.");
+      drawBoard();
+    }
+
+    resetButton.addEventListener("click", resetGame);
+    resetGame();
+  </script>
+</body>
+</html>
