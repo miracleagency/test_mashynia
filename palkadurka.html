@@ -17,6 +17,7 @@
       --o: #65d6ff;
       --ok: #74e59b;
       --chaos: #c493ff;
+      --bonus: #74e59b;
     }
 
     * {
@@ -142,9 +143,25 @@
       box-shadow: inset 0 0 0 2px rgba(196, 147, 255, 0.25), 0 0 20px rgba(196, 147, 255, 0.18);
     }
 
+    .cell.bonus {
+      border-color: var(--bonus);
+      box-shadow: inset 0 0 0 2px rgba(116, 229, 155, 0.28), 0 0 22px rgba(116, 229, 155, 0.18);
+      animation: wiggle 620ms ease-in-out infinite alternate;
+    }
+
     .cell.win {
       border-color: var(--ok);
       background: rgba(116, 229, 155, 0.12);
+    }
+
+    @keyframes wiggle {
+      from {
+        transform: rotate(-1deg);
+      }
+
+      to {
+        transform: rotate(1deg);
+      }
     }
 
     .status {
@@ -188,6 +205,42 @@
       text-align: right;
     }
 
+    .bonus-panel {
+      display: none;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin: 0 0 14px;
+      padding: 12px;
+      border: 1px solid rgba(116, 229, 155, 0.45);
+      border-radius: 8px;
+      background: rgba(116, 229, 155, 0.09);
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .bonus-panel.show {
+      display: grid;
+    }
+
+    .bonus-panel strong {
+      color: var(--text);
+    }
+
+    .bonus-panel button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #15191f;
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .bonus-panel button:hover {
+      border-color: var(--bonus);
+    }
+
     .version-link {
       display: inline-block;
       margin-top: 14px;
@@ -210,6 +263,10 @@
 
       .actions {
         display: grid;
+      }
+
+      .bonus-panel {
+        grid-template-columns: 1fr;
       }
 
       .hint {
@@ -236,9 +293,14 @@
 
       <p class="status" id="status"><strong>Твой ход.</strong> Ставь крестик и держи ухо востро: хаос-клетка любит менять планы.</p>
 
+      <div class="bonus-panel" id="bonusPanel">
+        <span><strong>Джокер-ход!</strong> Можно поставить X в зеленую клетку вне очереди.</span>
+        <button id="skipBonusButton" type="button">Не рисковать</button>
+      </div>
+
       <div class="actions">
         <button class="reset" id="resetButton" type="button">Новая партия</button>
-        <p class="hint">Версия игры: <strong>0.1.1</strong></p>
+        <p class="hint">Версия игры: <strong>0.2.0</strong></p>
       </div>
 
       <a class="version-link" href="version.html">Проверить версию сайта</a>
@@ -249,6 +311,8 @@
     const boardElement = document.querySelector("#board");
     const statusElement = document.querySelector("#status");
     const resetButton = document.querySelector("#resetButton");
+    const bonusPanel = document.querySelector("#bonusPanel");
+    const skipBonusButton = document.querySelector("#skipBonusButton");
     const playerScoreElement = document.querySelector("#playerScore");
     const botScoreElement = document.querySelector("#botScore");
     const drawScoreElement = document.querySelector("#drawScore");
@@ -269,6 +333,7 @@
     let locked = false;
     let finished = false;
     let winLine = [];
+    let bonusIndex = null;
     let score = {
       player: 0,
       bot: 0,
@@ -281,11 +346,11 @@
       board.forEach((value, index) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `cell ${value.toLowerCase()}${index === chaosIndex ? " chaos" : ""}${winLine.includes(index) ? " win" : ""}`;
+        button.className = `cell ${value.toLowerCase()}${index === chaosIndex ? " chaos" : ""}${index === bonusIndex ? " bonus" : ""}${winLine.includes(index) ? " win" : ""}`;
         button.textContent = value;
-        button.disabled = locked || finished || Boolean(value);
+        button.disabled = finished || Boolean(value) || (locked && index !== bonusIndex);
         button.setAttribute("aria-label", value ? `Клетка ${index + 1}: ${value}` : `Клетка ${index + 1}: пусто`);
-        button.addEventListener("click", () => playerMove(index));
+        button.addEventListener("click", () => bonusIndex === index ? useBonusMove(index) : playerMove(index));
         boardElement.appendChild(button);
       });
     }
@@ -299,6 +364,7 @@
         return;
       }
 
+      clearBonus();
       board[index] = "X";
       drawBoard();
       if (finishIfNeeded()) {
@@ -315,12 +381,63 @@
           botMove();
           finishIfNeeded();
         }
+
+        if (!finished && maybeOfferBonus()) {
+          drawBoard();
+          return;
+        }
+
         locked = false;
         if (!finished) {
           setStatus("<strong>Твой ход.</strong> Можно строить план. Можно просто тыкать уверенно.");
         }
         drawBoard();
       }, 520);
+    }
+
+    function maybeOfferBonus() {
+      const empty = getEmptyCells();
+      if (!empty.length || Math.random() > 0.28) {
+        return false;
+      }
+
+      bonusIndex = randomFrom(empty);
+      locked = true;
+      bonusPanel.classList.add("show");
+      setStatus("<strong>Джокер-ход!</strong> Зеленая клетка зовет. Это почти честный подарок от хаоса.");
+      return true;
+    }
+
+    function useBonusMove(index) {
+      if (finished || bonusIndex !== index || board[index]) {
+        return;
+      }
+
+      board[index] = "X";
+      clearBonus();
+
+      if (!finishIfNeeded()) {
+        locked = false;
+        setStatus("<strong>Твой ход.</strong> Джокер сработал. Теперь обычный ход, пока бот не понял, что произошло.");
+      }
+
+      drawBoard();
+    }
+
+    function skipBonusMove() {
+      if (bonusIndex === null) {
+        return;
+      }
+
+      clearBonus();
+      locked = false;
+      setStatus("<strong>Твой ход.</strong> Джокер пропущен. Очень взрослое решение.");
+      drawBoard();
+    }
+
+    function clearBonus() {
+      bonusIndex = null;
+      bonusPanel.classList.remove("show");
     }
 
     function botMove() {
@@ -459,11 +576,13 @@
       locked = false;
       finished = false;
       winLine = [];
+      clearBonus();
       setStatus("<strong>Твой ход.</strong> Ставь крестик и держи ухо востро: хаос-клетка любит менять планы.");
       drawBoard();
     }
 
     resetButton.addEventListener("click", resetGame);
+    skipBonusButton.addEventListener("click", skipBonusMove);
     resetGame();
   </script>
 </body>

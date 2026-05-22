@@ -1,1 +1,1 @@
-test_mashynia-palkadurka-v0.1.1-2026-05-22
+test_mashynia-palkadurka-v0.2.0-2026-05-22
